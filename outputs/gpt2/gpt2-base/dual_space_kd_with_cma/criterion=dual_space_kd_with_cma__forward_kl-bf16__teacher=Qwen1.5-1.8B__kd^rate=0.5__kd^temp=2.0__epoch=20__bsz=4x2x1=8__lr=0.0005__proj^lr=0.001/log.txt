@@ -1,0 +1,100 @@
+
+
+============================== EXP at 2025-12-14 17:10:12 ==============================
+test | name: dolly | {'exact_match': 2.2, 'rougeL': 23.5884} | lm_loss 7.445 | avg. gen lenth: 65.336 | seed 10
+
+
+============================== EXP at 2025-12-14 17:11:46 ==============================
+test | name: dolly | {'exact_match': 2.2, 'rougeL': 23.9128} | lm_loss 7.445 | avg. gen lenth: 67.41 | seed 20
+
+
+============================== EXP at 2025-12-14 17:13:28 ==============================
+test | name: dolly | {'exact_match': 2.6, 'rougeL': 23.9278} | lm_loss 7.445 | avg. gen lenth: 66.748 | seed 30
+
+
+============================== EXP at 2025-12-14 17:15:12 ==============================
+test | name: dolly | {'exact_match': 2.8, 'rougeL': 24.6901} | lm_loss 7.445 | avg. gen lenth: 64.138 | seed 40
+
+
+============================== EXP at 2025-12-14 17:16:56 ==============================
+test | name: dolly | {'exact_match': 2.8, 'rougeL': 24.9268} | lm_loss 7.445 | avg. gen lenth: 67.742 | seed 50
+
+
+============================== EXP at 2025-12-14 17:18:37 ==============================
+test | name: self-inst | {'exact_match': 0.0, 'rougeL': 10.1877} | lm_loss 10.5194 | avg. gen lenth: 69.66115702479338 | seed 10
+
+
+============================== EXP at 2025-12-14 17:19:39 ==============================
+test | name: self-inst | {'exact_match': 0.0, 'rougeL': 9.9506} | lm_loss 10.5194 | avg. gen lenth: 78.33884297520662 | seed 20
+
+
+============================== EXP at 2025-12-14 17:20:41 ==============================
+test | name: self-inst | {'exact_match': 0.0, 'rougeL': 9.9278} | lm_loss 10.5194 | avg. gen lenth: 79.39669421487604 | seed 30
+
+
+============================== EXP at 2025-12-14 17:21:45 ==============================
+test | name: self-inst | {'exact_match': 0.0, 'rougeL': 10.064} | lm_loss 10.5194 | avg. gen lenth: 74.95454545454545 | seed 40
+
+
+============================== EXP at 2025-12-14 17:22:45 ==============================
+test | name: self-inst | {'exact_match': 0.0, 'rougeL': 10.7253} | lm_loss 10.5194 | avg. gen lenth: 69.09504132231405 | seed 50
+
+
+============================== EXP at 2025-12-14 17:23:44 ==============================
+test | name: vicuna | {'exact_match': 0.0, 'rougeL': 15.4236} | lm_loss 7.3407 | avg. gen lenth: 114.95 | seed 10
+
+
+============================== EXP at 2025-12-14 17:24:20 ==============================
+test | name: vicuna | {'exact_match': 0.0, 'rougeL': 14.8368} | lm_loss 7.3407 | avg. gen lenth: 117.7875 | seed 20
+
+
+============================== EXP at 2025-12-14 17:24:55 ==============================
+test | name: vicuna | {'exact_match': 0.0, 'rougeL': 15.7745} | lm_loss 7.3407 | avg. gen lenth: 120.65 | seed 30
+
+
+============================== EXP at 2025-12-14 17:25:30 ==============================
+test | name: vicuna | {'exact_match': 0.0, 'rougeL': 14.8987} | lm_loss 7.3407 | avg. gen lenth: 122.1 | seed 40
+
+
+============================== EXP at 2025-12-14 17:26:05 ==============================
+test | name: vicuna | {'exact_match': 0.0, 'rougeL': 14.4433} | lm_loss 7.3407 | avg. gen lenth: 112.4375 | seed 50
+
+
+============================== EXP at 2025-12-14 17:26:40 ==============================
+test | name: sinst/11_ | {'exact_match': 0.0, 'rougeL': 15.7237} | lm_loss 10.2352 | avg. gen lenth: 52.78866587957497 | seed 10
+
+
+============================== EXP at 2025-12-14 17:31:12 ==============================
+test | name: sinst/11_ | {'exact_match': 0.0, 'rougeL': 15.9594} | lm_loss 10.2352 | avg. gen lenth: 52.79279811097993 | seed 20
+
+
+============================== EXP at 2025-12-14 17:35:46 ==============================
+test | name: sinst/11_ | {'exact_match': 0.0, 'rougeL': 15.6733} | lm_loss 10.2352 | avg. gen lenth: 51.65525383707202 | seed 30
+
+
+============================== EXP at 2025-12-14 17:40:12 ==============================
+test | name: sinst/11_ | {'exact_match': 0.0, 'rougeL': 15.5621} | lm_loss 10.2352 | avg. gen lenth: 52.214285714285715 | seed 40
+
+
+============================== EXP at 2025-12-14 17:44:42 ==============================
+test | name: sinst/11_ | {'exact_match': 0.0, 'rougeL': 15.7766} | lm_loss 10.2352 | avg. gen lenth: 51.230814639905546 | seed 50
+
+
+============================== EXP at 2025-12-14 17:49:16 ==============================
+test | name: dialogsum | {'exact_match': 0.0, 'rougeL': 9.5131} | lm_loss nan | avg. gen lenth: 116.824 | seed 10
+
+
+============================== EXP at 2025-12-14 17:55:03 ==============================
+test | name: dialogsum | {'exact_match': 0.0, 'rougeL': 9.4834} | lm_loss nan | avg. gen lenth: 119.93733333333333 | seed 20
+
+
+============================== EXP at 2025-12-14 18:00:49 ==============================
+test | name: dialogsum | {'exact_match': 0.0, 'rougeL': 9.4009} | lm_loss nan | avg. gen lenth: 120.54066666666667 | seed 30
+
+
+============================== EXP at 2025-12-14 18:06:40 ==============================
+test | name: dialogsum | {'exact_match': 0.0, 'rougeL': 9.4602} | lm_loss nan | avg. gen lenth: 114.464 | seed 40
+
+
+============================== EXP at 2025-12-14 18:12:27 ==============================
+test | name: dialogsum | {'exact_match': 0.0, 'rougeL': 9.2942} | lm_loss nan | avg. gen lenth: 118.94466666666666 | seed 50

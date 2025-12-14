@@ -1,5 +1,5 @@
 #! /bin/bash
-GPUS=(0 1 2 3)
+GPUS=(0)
 export CUDA_VISIBLE_DEVICES=$(IFS=,; echo "${GPUS[*]}")
 
 MASTER_ADDR=localhost
@@ -15,14 +15,14 @@ DISTRIBUTED_ARGS="--nproc_per_node $GPUS_PER_NODE \
                   --master_port $MASTER_PORT"
 
 # model
-BASE_PATH=path_to_dskd_project
+BASE_PATH=/workspace/DSKD
 CKPT_TYPE="gpt2"
 CKPT_NAME="gpt2-base"
 CKPT_PATH="${BASE_PATH}/model_hub/${CKPT_TYPE}/${CKPT_NAME}"
 # we use qwen-1.8b as the teacher with the different vocabulary from gpt2
 TEACHER_MODEL_TYPE="qwen"
 TEACHER_MODEL_NAME="Qwen1.5-1.8B"
-TEACHER_MODEL_PATH="path_to_teacher_sft_ckpt"
+TEACHER_MODEL_PATH="${BASE_PATH}/model_hub/qwen/MCW_KD_Teacher_Qwen1.5-1.8B"
 # data
 DATA_DIR="${BASE_PATH}/data/dolly/"
 # task

@@ -30,10 +30,11 @@ source .venv/bin/activate
 # hf download HoangTran223/MCW_KD_GPT2_MultiOT --local-dir models/multiot_gpt2-120m/
 # hf download HoangTran223/MCW_KD_Teacher_Qwen1.5-1.8B --local-dir models/teacher_qwen1.5-1.8b/
 
-# mini
 wget https://huggingface.co/openai-community/gpt2/resolve/main/model.safetensors -O model_hub/gpt2/gpt2-base/model.safetensors
 wget https://huggingface.co/HoangTran223/MCW_KD_GPT2_SFT-1/resolve/main/pytorch_model.bin -O outputs/gpt2/gpt2-base/hoang_sft/MCW_KD_GPT2_SFT-1/pytorch_model.bin
 wget "https://huggingface.co/mrtuandao/weighted-CTKD/resolve/main/gpt2/gpt2-base/sft/criterion%3Dcross_entropy__default-bf16__epoch%3D20__bsz%3D4x2x1%3D8__lr%3D0.0005/epoch20_step28580_loss6.3126_rougel24.6371/pytorch_model.bin" -O outputs/gpt2/gpt2-base/sft/criterion=cross_entropy__default-bf16__epoch=20__bsz=4x2x1=8__lr=0.0005/epoch20_step28580_loss6.3126_rougel24.6371/pytorch_model.bin
+
+hf download HoangTran223/MCW_KD_Teacher_Qwen1.5-1.8B --local-dir model_hub/qwen/MCW_KD_Teacher_Qwen1.5-1.8B
 
 hf download HoangTran223/MCW_KD_GPT2_ULD --local-dir outputs/gpt2/gpt2-base/uld/MCW_KD_GPT2_ULD
 hf download HoangTran223/MCW_KD_GPT2_DSKD --local-dir outputs/gpt2/gpt2-base/dskd/MCW_KD_GPT2_DSKD

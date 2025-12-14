@@ -1,4 +1,4 @@
-results_path = "/workspace/DSKD/outputs/gpt2/gpt2-base/multiot/rougeL_results.jsonl"
+results_path = "outputs/gpt2/gpt2-base/mined/rougeL_results.jsonl"
 
 import json
 
