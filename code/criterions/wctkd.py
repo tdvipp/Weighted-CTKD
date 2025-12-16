@@ -2,7 +2,7 @@ import math
 import torch
 import torch.nn.functional as F
 from .various_divergence import VariousDivergence
-
+from utils import log_rank
 import json
 
 
@@ -17,11 +17,19 @@ class WCTKD(VariousDivergence):
         self.input_max_length = args.max_length
         self.M_global_path = args.M_global_path
         self.M_global: dict[tuple[int, int], float] = self.load_M_global()
+        self.top_k_indices = self.compute_top_k_indices()
 
     def load_M_global(self):
         with open(self.M_global_path, "r") as f:
-            M_global = json.load(f)
+            temp_M_global = json.load(f)
+            M_global = {}
+            for k, v in temp_M_global.items():
+                i, j = map(int, k.split(","))
+                M_global[(i, j)] = v
         return M_global
+
+    def compute_top_k_indices(self):
+        pass
 
     def forward(
         self,
@@ -85,8 +93,8 @@ class WCTKD(VariousDivergence):
         # compute BI
         teacher_hidden_states = teacher_outputs.hidden_states
         num_teacher_layer = len(teacher_hidden_states) - 1
-        batch_size = teacher_hidden_states.shape[0]
-        batch_bi_scores = torch.zeros((num_teacher_layer, batch_size))
+        batch_size = teacher_hidden_states[0].shape[0]
+        batch_bi_scores = torch.zeros((num_teacher_layer, batch_size), device=teacher_hidden_states[0].device, dtype=torch.bfloat16)
         for layer_idx in range(num_teacher_layer):
             X_l = teacher_hidden_states[layer_idx]
             Y_l = teacher_hidden_states[layer_idx + 1]
@@ -98,21 +106,18 @@ class WCTKD(VariousDivergence):
             batch_bi_scores[layer_idx, :] = scores
 
         avg_bi_scores = batch_bi_scores.mean(dim=-1)
-
         top_indices = sorted(
-            range(len(avg_bi_scores)), key=lambda x: avg_bi_scores[x], reverse=True
+            range(len(avg_bi_scores)), key=lambda x: avg_bi_scores[x]
         )[: self.top_k]
 
         top_bi_scores = avg_bi_scores[top_indices]
-        # softmax top_bi_scores
-        log["top_k_indices"] = top_indices
-        log["top_k_bi_scores"] = top_bi_scores
-
         layer_weights = torch.softmax(top_bi_scores, dim=-1) # [K]
 
         # calculate overlap position between student and teacher
         overlaps = torch.zeros(
-            (batch_size, self.input_max_length, self.input_max_length)
+            (batch_size, self.input_max_length, self.input_max_length),
+            dtype=torch.bool,
+            device=outputs.hidden_states[0].device
         )
         student_tokenizer = distiller.student_tokenizer
         teacher_tokenizer = distiller.teacher_tokenizers[distiller.teacher_model_type]
@@ -154,65 +159,74 @@ class WCTKD(VariousDivergence):
                     overlaps[b, i, j] = 1
 
         global_scores = torch.zeros(
-            (batch_size, self.input_max_length, self.input_max_length)
+            (batch_size, self.input_max_length, self.input_max_length),
+            device=outputs.hidden_states[0].device,
+            dtype=outputs.hidden_states[0].dtype  # Use the same dtype as hidden states
         )
         for b in range(batch_size):
             for i in range(self.input_max_length):
                 for j in range(self.input_max_length):
                     if overlaps[b, i, j] == 1:
-                        global_scores[b, i, j] = self.M_global[(i, j)]
+                        global_scores[b, i, j] = self.M_global.get((i, j), 0.0)
 
-        student_hidden_states = (
-            outputs.hidden_states
+        student_hidden_states_stacked = (
+            torch.stack(outputs.hidden_states[1:])
         )  # [num_layer, batch_size, seq_len, hidden_size]
-        teacher_hidden_states = (
-            teacher_outputs.hidden_states
+        teacher_hidden_states_stacked = (
+            torch.stack(teacher_outputs.hidden_states[1:])
         )  # [num_layer, batch_size, seq_len, hidden_size]
 
-        A = torch.zeros(
-            (self.top_k, batch_size, self.input_max_length, self.input_max_length)
-        )
-        H_T = teacher_hidden_states.shape[-1]
-        H_S = student_hidden_states.shape[-1]
-        teacher_hidden_states_projected = torch.zeros(
-            (self.top_k, batch_size, self.input_max_length, H_S)
-            )
-        student_hidden_states_stacked = torch.zeros(
-            (self.top_k, batch_size, self.input_max_length, H_S)
-        )
+        # Build lists instead of using inplace assignments
+        A_list = []
+        teacher_hidden_states_projected_list = []
+        student_hidden_states_list = []
+
         for k in range(self.top_k):
             teacher_layer_idx = top_indices[k]
             student_layer_idx = teacher_layer_idx // num_teacher_layer
 
-            teacher_hidden_state = teacher_hidden_states[teacher_layer_idx] # [B, T, H]
-            student_hidden_state = student_hidden_states[student_layer_idx]  # [B, S, H]
+            teacher_hidden_state = teacher_hidden_states_stacked[teacher_layer_idx] # [B, T, H]
+            student_hidden_state = student_hidden_states_stacked[student_layer_idx]  # [B, S, H]
 
-            teacher_hidden_states_projected[k] = distiller.hidden_states_projectors[
+            teacher_hidden_state_projected = distiller.hidden_states_projectors[
                 f"teacher_{teacher_layer_idx}"
             ](teacher_hidden_state)  # [B, T, H]
-            student_hidden_states_stacked[k] = student_hidden_state
+            
+            # Ensure the projected tensor is in the correct dtype
+            teacher_hidden_state_projected = teacher_hidden_state_projected.to(
+                dtype=student_hidden_state.dtype
+            )
 
             contextual = torch.bmm(
-                student_hidden_state, teacher_hidden_states_projected[k].transpose(-1, -2)
+                student_hidden_state, teacher_hidden_state_projected.transpose(-1, -2)
             )  # [B, S, T]
 
             hybrid = (
                 1.0 - self.hidden_gamma
             ) * contextual + self.hidden_gamma * global_scores
-            A[k] = hybrid.masked_fill(~overlaps[b], 0.0)
+            # Use the full overlaps tensor, not just batch b
+            A_k = hybrid.masked_fill(~overlaps, 0.0)
+            A_list.append(A_k)
+            teacher_hidden_states_projected_list.append(teacher_hidden_state_projected)
+            student_hidden_states_list.append(student_hidden_state)
+
+        # Stack the lists to create tensors (non-inplace)
+        A = torch.stack(A_list)  # [K, B, S, T]
+        teacher_hidden_states_projected = torch.stack(teacher_hidden_states_projected_list)  # [K, B, T, H]
+        student_hidden_states_stacked = torch.stack(student_hidden_states_list)  # [K, B, S, H]
 
         A_softmax = torch.softmax(A, dim=-1)
-        H_tilte = torch.einsum("kbst,kbth->kbsh", A_softmax, teacher_hidden_states_projected)
+        # Ensure both tensors are in the same dtype before einsum
+        A_softmax = A_softmax.to(dtype=teacher_hidden_states_projected.dtype)
+        H_tilte = torch.einsum("kbst,kbth->kbsh", A_softmax, teacher_hidden_states_projected)        
         H_tilte_norm = F.normalize(H_tilte, dim=-1)
         student_hidden_states_stacked_norm = F.normalize(student_hidden_states_stacked, dim=-1)
         cosines = 1.0 - F.cosine_similarity(H_tilte_norm, student_hidden_states_stacked_norm, dim=-1) # [K, B, S]
-        weighted_cosines = torch.sum((cosines * layer_weights.unsqueeze(-1)), dim=0) # [B, S]
+        weighted_cosines = torch.sum((cosines * layer_weights.unsqueeze(-1).unsqueeze(-1)), dim=0) # [B, S]
         pad_mask = output_data["label"].ne(self.padding_id)
         wctkd_loss = (weighted_cosines * pad_mask).sum()
         log["wctkd_loss"] = wctkd_loss
         return wctkd_loss, log
-
-
 
     def compute_dual_space_kd_loss_with_cma(
         self, outputs, teacher_outputs, input_data, output_data, distiller, log
@@ -348,5 +362,5 @@ class WCTKD(VariousDivergence):
         else:
             kd_loss = t2s_ce_loss
 
-        log["kd_loss"] = kd_loss
+        log["dskd_loss"] = kd_loss
         return kd_loss, log

@@ -59,25 +59,26 @@ class Distiller(nn.Module):
             self.stu2tea_id_mapping_tea = torch.LongTensor(list(self.stu2tea_id_mapping.values())).to(device)
             self.stu2tea_id_mapping_stu = torch.LongTensor(list(self.stu2tea_id_mapping.keys())).to(device)
 
-            if self.args.embedding_projection_path is not None:
-                self.embedding_projection = torch.load(self.args.embedding_projection_path, map_location=f"cuda:{self.device}")
-                log_rank(f"Load embedding projection from {self.args.embedding_projection_path}")
-                # init hidden states projector
-                if hasattr(self.teacher_model, 'transformer') and hasattr(self.teacher_model.transformer, 'h'):
-                    num_teacher_layers = len(self.teacher_model.transformer.h)  # GPT2 style
-                elif hasattr(self.teacher_model, 'bert') and hasattr(self.teacher_model.bert, 'encoder'):
-                    num_teacher_layers = len(self.teacher_model.bert.encoder.layer)  # BERT style
-                elif hasattr(self.teacher_model, 'model') and hasattr(self.teacher_model.model, 'layers'):
-                    num_teacher_layers = len(self.teacher_model.model.layers)  # LLaMA/Qwen style
-                elif hasattr(self.teacher_model, 'layers'):
-                    num_teacher_layers = len(self.teacher_model.layers)  # Direct layers
-                else:
-                    raise NotImplementedError(f"Invalid teacher model for hidden states projector")
-                
-                self.hidden_states_projectors = nn.ModuleDict()
-                for layer_idx in range(num_teacher_layers):
-                    self.hidden_states_projectors[f"teacher_{layer_idx}"] = nn.Linear(self.teacher_hidden_size, self.student_hidden_size)
-                log_rank(f"Initialized {num_teacher_layers} hidden states projectors")
+        if self.args.embedding_projection_path is not None:
+            self.embedding_projection = torch.load(self.args.embedding_projection_path, map_location=f"cuda:{self.device}")
+            log_rank(f"Load embedding projection from {self.args.embedding_projection_path}")
+            # init hidden states projector
+            if hasattr(self.teacher_model, 'transformer') and hasattr(self.teacher_model.transformer, 'h'):
+                num_teacher_layers = len(self.teacher_model.transformer.h)  # GPT2 style
+            elif hasattr(self.teacher_model, 'bert') and hasattr(self.teacher_model.bert, 'encoder'):
+                num_teacher_layers = len(self.teacher_model.bert.encoder.layer)  # BERT style
+            elif hasattr(self.teacher_model, 'model') and hasattr(self.teacher_model.model, 'layers'):
+                num_teacher_layers = len(self.teacher_model.model.layers)  # LLaMA/Qwen style
+            elif hasattr(self.teacher_model, 'layers'):
+                num_teacher_layers = len(self.teacher_model.layers)  # Direct layers
+            else:
+                raise NotImplementedError(f"Invalid teacher model for hidden states projector")
+            
+            self.hidden_states_projectors = nn.ModuleDict()
+            for layer_idx in range(num_teacher_layers):
+                self.hidden_states_projectors[f"teacher_{layer_idx}"] = nn.Linear(self.teacher_hidden_size, self.student_hidden_size)
+            self.hidden_states_projectors.to(self.device)
+            log_rank(f"Initialized {num_teacher_layers} hidden states projectors")
 
     @staticmethod
     def add_distiller_args(parser):
@@ -316,3 +317,6 @@ class Distiller(nn.Module):
             loss_denom,
         )
         return loss, logging_output
+
+    def compute_top_k_indices_and_layer_weights(self):
+        pass

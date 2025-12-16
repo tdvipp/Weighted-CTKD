@@ -108,7 +108,8 @@ def finetune(
         "global_step": 0,
         "loss": [], 
         "nll_loss": [],
-        "kd_loss": [],
+        "wctkd_loss": [],
+        "dskd_loss": [],
         "accuracy": [],
         "micro_step_time": [],
         "step_time": []
@@ -133,7 +134,7 @@ def finetune(
         model.train()
         end_epoch = False
         epoch_step = 0
-        epoch_loss, epoch_nll_loss, epoch_kd_loss = 0.0, 0.0, 0.0
+        epoch_loss, epoch_nll_loss, epoch_wctkd_loss, epoch_kd_loss = 0.0, 0.0, 0.0, 0.0
         train_iter = iter(train_dataloader)
 
         while True:
@@ -205,16 +206,18 @@ def finetune(
                 get_log(logging_output)
                 epoch_loss += sum(logging_output["loss"])
                 epoch_nll_loss += sum(logging_output["nll_loss"])
-                epoch_kd_loss += sum(logging_output["kd_loss"])
+                epoch_wctkd_loss += sum(logging_output["wctkd_loss"])
+                epoch_kd_loss += sum(logging_output["dskd_loss"])
                 for key in logging_output:
                     if isinstance(logging_output[key], list):
                         logging_output[key] = []
             
         log_rank("End of epoch {}".format(epoch + 1))
-        log_rank("train | epoch {:0>3d} | loss {:.4f} | nll_loss {:.4f} | kd_loss {:.4f}".format(
+        log_rank("train | epoch {:0>3d} | loss {:.4f} | nll_loss {:.4f} | wctkd_loss {:.4f} | dskd_loss {:.4f}".format(
             epoch + 1,
             epoch_loss / (epoch_step * args.gradient_accumulation_steps),
             epoch_nll_loss / (epoch_step * args.gradient_accumulation_steps),
+            epoch_wctkd_loss / (epoch_step * args.gradient_accumulation_steps),
             epoch_kd_loss / (epoch_step * args.gradient_accumulation_steps),
         ))
         if args.save_dir and (epoch + 1) % args.save_interval == 0:

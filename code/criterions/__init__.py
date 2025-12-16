@@ -14,7 +14,7 @@ criterion_list = {
     "dual_space_kd_with_cma": DualSpaceKDWithCMA,
     "universal_logit_distillation": UniversalLogitDistillation,
     "min_edit_dis_kld": MinEditDisForwardKLD,
-    "wtckd": WCTKD
+    "wctkd": WCTKD
 }
 
 def build_criterion(args):

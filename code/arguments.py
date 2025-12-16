@@ -38,6 +38,8 @@ def add_model_args(parser: argparse.ArgumentParser):
     group.add_argument("--dropout-path-rate", type=float, default=None)
     group.add_argument("--fp32", action="store_true")
     group.add_argument("--model-dtype", type=str, default="fp16")
+    group.add_argument("--M-global-path", type=str, default=None)
+    group.add_argument("--embedding-projection-path", type=str, default=None)
     return parser
 
 
@@ -137,6 +139,11 @@ def add_hp_args(parser: argparse.ArgumentParser):
                        help='loss scale')
     group.add_argument("--kd-rate", type=float, default=0.5)
     group.add_argument("--kd-temperature", type=float, default=1.0)
+    group.add_argument("--wctkd-alpha", type=float, default=0.5)
+    group.add_argument("--wctkd-beta", type=float, default=0.5)
+    group.add_argument("--wctkd-gamma", type=float, default=0.5)
+    group.add_argument("--wctkd-hidden-gamma", type=float, default=0.5)
+    group.add_argument("--wctkd-top-k", type=int, default=8)
     group.add_argument("--kd-objective", type=str, default="forward_kl")
     group.add_argument("--teacher-temperature", type=float, default=1.0)
     group.add_argument("--label-smoothing", type=float, default=0.0)

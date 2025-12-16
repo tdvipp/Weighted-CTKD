@@ -188,9 +188,9 @@ def _sinkhorn_block_gpu_and_save(An: torch.Tensor,
     save_data = {}
     for i in range(n):
         for j in range(Ktop):
-            save_data[(i, j)] = vals[i, j]
+            save_data[f"{i},{j}"] = float(vals[i, j])
     with open(out_path, "w") as f:
-        json.dump(save_data, f)
+        json.dump(save_data, f, indent=4)
 
 
 def main():
@@ -199,13 +199,13 @@ def main():
     parser.add_argument("--student-model", type=str, required=True)
     parser.add_argument("--teacher-adapter-path", type=str, default=None)
     parser.add_argument("--student-adapter-path", type=str, default=None)
-    parser.add_argument("--output-path", type=str, required=True, help="Dense: .npy (topk=-1), Sparse: .npz (topk>0)")
+    parser.add_argument("--output-path", type=str, required=True, help="Sparse: .json (topk>0)")
     parser.add_argument("--save-projection-path", type=str, required=True, help="Output .pt for W_q init")
     parser.add_argument("--ridge-lambda", type=float, default=1e-3)
     parser.add_argument("--sinkhorn-reg", type=float, default=0.1)
     parser.add_argument("--teacher-vocab-max", type=int, default=None)
     parser.add_argument("--student-vocab-max", type=int, default=None)
-    parser.add_argument("--topk", type=int, default=-1, help="TopK=-1: dense full matrix; TopK>0: per-row top-K sparse")
+    parser.add_argument("--topk", type=int, default=8, help="per-row top-K sparse")
     # GPU block sizes and iterations
     parser.add_argument("--row-batch", type=int, default=4096)
     parser.add_argument("--col-batch", type=int, default=8192)
