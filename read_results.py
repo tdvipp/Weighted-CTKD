@@ -1,4 +1,4 @@
-results_path = "outputs/gpt2/gpt2-base/mined/rougeL_results.jsonl"
+results_path = "outputs/gpt2/gpt2-base/sft/criterion=cross_entropy__default-bf16__epoch=20__bsz=4x2x1=8__lr=0.0005/rougeL_results.jsonl"
 
 import json
 

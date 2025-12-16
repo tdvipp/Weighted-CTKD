@@ -268,6 +268,12 @@ def finetune(
                             model.module.projectors.state_dict(), 
                             os.path.join(save_dir_path, "projector.pt")
                         )
+                    if hasattr(model.module, "hidden_states_projectors"):
+                        log_rank("Saving hidden states projector...")
+                        torch.save(
+                            model.module.hidden_states_projectors.state_dict(), 
+                            os.path.join(save_dir_path, "hidden_states_projector.pt")
+                        )
                     # only keep best N checkpoints
                     if args.eval_gen:
                         model_list.append({
@@ -307,6 +313,12 @@ def finetune(
                         torch.save(
                             model.module.projectors.state_dict(), 
                             os.path.join(save_dir_path, "projector.pt")
+                        )
+                    if hasattr(model.module, "hidden_states_projectors"):
+                        log_rank("Saving hidden states projector...")
+                        torch.save(
+                            model.module.hidden_states_projectors.state_dict(), 
+                            os.path.join(save_dir_path, "hidden_states_projector.pt")
                         )
                     # only keep best N checkpoints
                     model_list.append({
