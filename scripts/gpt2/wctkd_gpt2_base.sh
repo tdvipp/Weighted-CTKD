@@ -36,8 +36,8 @@ EPOCH=20
 KD_RATE=0.5
 KD_TEMP=2.0
 WCTKD_ALPHA=0.5
-WCTKD_BETA=0.5
-WCTKD_GAMMA=0.5
+WCTKD_BETA=0.2
+WCTKD_GAMMA=0.3
 WCTKD_HIDDEN_GAMMA=0.5
 WCTKD_TOP_K=8
 # distiller
@@ -52,7 +52,7 @@ PRECISION="bf16"
 CRITERION="wctkd"
 KD_OBJ="forward_kl"
 CONFIG="${KD_OBJ}-${PRECISION}"
-SETTING=criterion=${CRITERION}__${CONFIG}__teacher=${TEACHER_MODEL_NAME}__kd^rate=${KD_RATE}__kd^temp=${KD_TEMP}__epoch=${EPOCH}__bsz=${BATCH_SIZE}x${GRAD_ACC}x${GPUS_PER_NODE}=$((BATCH_SIZE * GRAD_ACC * GPUS_PER_NODE * NNODES))__lr=${LR}__proj^lr=${PROJECTOR_LR}
+SETTING=criterion=${CRITERION}__${CONFIG}__teacher=${TEACHER_MODEL_NAME}__kd^rate=${KD_RATE}__kd^temp=${KD_TEMP}__wctkd^alpha=${WCTKD_ALPHA}__wctkd^beta=${WCTKD_BETA}__wctkd^gamma=${WCTKD_GAMMA}__wctkd^hidden_gamma=${WCTKD_HIDDEN_GAMMA}__wctkd^top_k=${WCTKD_TOP_K}__epoch=${EPOCH}__bsz=${BATCH_SIZE}x${GRAD_ACC}x${GPUS_PER_NODE}=$((BATCH_SIZE * GRAD_ACC * GPUS_PER_NODE * NNODES))__lr=${LR}__proj^lr=${PROJECTOR_LR}
 SAVE_PATH="${BASE_PATH}/outputs/${CKPT_TYPE}/${CKPT_NAME}/${TASK}/${SETTING}"
 SAVE_BEST_N_CKPTS=1
 # seed
