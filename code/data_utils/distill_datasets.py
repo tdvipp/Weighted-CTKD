@@ -192,4 +192,44 @@ class DistillDataset(Dataset):
             for key in teacher_no_model_data[model_type]:
                 no_model_data[f"{prefix}{key}"] = teacher_no_model_data[model_type][key]
         
+        # Pre-compute offsets and special masks for WCTKD optimization
+        # This moves tokenization from GPU (forward pass) to CPU (data loading)
+        student_offsets_list = []
+        student_special_masks = []
+        teacher_offsets_dict = {model_type: [] for model_type in self.teacher_tokenizers}
+        teacher_special_masks_dict = {model_type: [] for model_type in self.teacher_tokenizers}
+        
+        for i in range(bs):
+            # Student tokenization
+            student_input_ids = model_data["input_ids"][i]
+            student_text = self.student_tokenizer.decode(student_input_ids)
+            student_special_mask = self.student_tokenizer.get_special_tokens_mask(
+                student_input_ids, already_has_special_tokens=True
+            )
+            student_encoded = self.student_tokenizer(
+                student_text, return_offsets_mapping=True
+            )
+            student_offsets_list.append(student_encoded.offset_mapping)
+            student_special_masks.append(student_special_mask)
+            
+            # Teacher tokenization for each teacher model
+            for model_type in self.teacher_tokenizers:
+                teacher_input_ids = model_data[f"teacher_{model_type}_input_ids"][i]
+                teacher_text = self.teacher_tokenizers[model_type].decode(teacher_input_ids)
+                teacher_special_mask = self.teacher_tokenizers[model_type].get_special_tokens_mask(
+                    teacher_input_ids, already_has_special_tokens=True
+                )
+                teacher_encoded = self.teacher_tokenizers[model_type](
+                    teacher_text, return_offsets_mapping=True
+                )
+                teacher_offsets_dict[model_type].append(teacher_encoded.offset_mapping)
+                teacher_special_masks_dict[model_type].append(teacher_special_mask)
+        
+        # Add offsets and masks to model_data for WCTKD to use
+        model_data["student_offsets"] = student_offsets_list
+        model_data["student_special_masks"] = student_special_masks
+        for model_type in self.teacher_tokenizers:
+            model_data[f"teacher_{model_type}_offsets"] = teacher_offsets_dict[model_type]
+            model_data[f"teacher_{model_type}_special_masks"] = teacher_special_masks_dict[model_type]
+        
         return model_data, no_model_data, gen_data

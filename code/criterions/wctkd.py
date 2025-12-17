@@ -31,6 +31,107 @@ class WCTKD(VariousDivergence):
     def compute_top_k_indices(self):
         pass
 
+    def _compute_overlaps_vectorized(
+        self, 
+        student_offsets_list, 
+        teacher_offsets_list,
+        student_special_masks,
+        teacher_special_masks,
+        batch_size,
+        device
+    ):
+        """
+        Vectorized computation of overlaps between student and teacher token offsets.
+        
+        Args:
+            student_offsets_list: List of offset_mapping tuples for each batch item
+            teacher_offsets_list: List of offset_mapping tuples for each batch item
+            student_special_masks: List of special token masks for student tokens
+            teacher_special_masks: List of special token masks for teacher tokens
+            batch_size: Batch size
+            device: Device to create tensors on
+            
+        Returns:
+            overlaps: [batch_size, max_student_len, max_teacher_len] bool tensor
+        """
+        overlaps = torch.zeros(
+            (batch_size, self.input_max_length, self.input_max_length),
+            dtype=torch.bool,
+            device=device
+        )
+        
+        for b in range(batch_size):
+            student_offsets = student_offsets_list[b]
+            teacher_offsets = teacher_offsets_list[b]
+            student_special_mask = student_special_masks[b]
+            teacher_special_mask = teacher_special_masks[b]
+            
+            # Convert offsets to tensors for vectorized operations
+            # Filter out special tokens and empty offsets
+            student_valid = []
+            student_valid_indices = []
+            for i, (start, end) in enumerate(student_offsets):
+                if not student_special_mask[i] and start != end:
+                    student_valid.append((start, end))
+                    student_valid_indices.append(i)
+            
+            teacher_valid = []
+            teacher_valid_indices = []
+            for j, (start, end) in enumerate(teacher_offsets):
+                if not teacher_special_mask[j] and start != end:
+                    teacher_valid.append((start, end))
+                    teacher_valid_indices.append(j)
+            
+            if len(student_valid) == 0 or len(teacher_valid) == 0:
+                continue
+            
+            # Convert to tensors: [num_valid_tokens, 2] where 2 is (start, end)
+            student_tensor = torch.tensor(
+                student_valid, 
+                dtype=torch.long, 
+                device=device
+            )  # [S_valid, 2]
+            teacher_tensor = torch.tensor(
+                teacher_valid, 
+                dtype=torch.long, 
+                device=device
+            )  # [T_valid, 2]
+            
+            # Extract start and end positions
+            s_starts = student_tensor[:, 0]  # [S_valid]
+            s_ends = student_tensor[:, 1]    # [S_valid]
+            t_starts = teacher_tensor[:, 0]  # [T_valid]
+            t_ends = teacher_tensor[:, 1]    # [T_valid]
+            
+            # Use broadcasting to compute all overlaps at once
+            # Two intervals overlap if: s_start < t_end AND s_end > t_start
+            # Shape: [S_valid, 1] < [1, T_valid] -> [S_valid, T_valid]
+            overlap_condition = (
+                (s_starts.unsqueeze(1) < t_ends.unsqueeze(0)) & 
+                (s_ends.unsqueeze(1) > t_starts.unsqueeze(0))
+            )  # [S_valid, T_valid]
+            
+            # Map back to original indices using advanced indexing
+            if overlap_condition.any():
+                # Get indices where overlaps occur
+                overlap_positions = overlap_condition.nonzero(as_tuple=False)  # [N, 2]
+                
+                if len(overlap_positions) > 0:
+                    # Map from valid indices to original indices
+                    student_orig_indices = torch.tensor(
+                        [student_valid_indices[idx] for idx in overlap_positions[:, 0]],
+                        device=device
+                    )
+                    teacher_orig_indices = torch.tensor(
+                        [teacher_valid_indices[idx] for idx in overlap_positions[:, 1]],
+                        device=device
+                    )
+                    
+                    # Set overlaps using advanced indexing
+                    overlaps[b, student_orig_indices, teacher_orig_indices] = True
+        
+        return overlaps
+
     def forward(
         self,
         distiller,
@@ -114,60 +215,89 @@ class WCTKD(VariousDivergence):
         layer_weights = torch.softmax(top_bi_scores, dim=-1) # [K]
 
         # calculate overlap position between student and teacher
-        overlaps = torch.zeros(
-            (batch_size, self.input_max_length, self.input_max_length),
-            dtype=torch.bool,
-            device=outputs.hidden_states[0].device
-        )
+        # Check if offsets are pre-computed in collate_fn
+        device = outputs.hidden_states[0].device
         student_tokenizer = distiller.student_tokenizer
         teacher_tokenizer = distiller.teacher_tokenizers[distiller.teacher_model_type]
-        for b in range(batch_size):
-            student_input_ids = input_data["input_ids"][b]
-            teacher_input_ids = input_data[
-                f"teacher_{distiller.teacher_model_type}_input_ids"
-            ][b]
-            student_text = student_tokenizer.decode(student_input_ids)
-            teacher_text = teacher_tokenizer.decode(teacher_input_ids)
-            student_special_mask = student_tokenizer.get_special_tokens_mask(
-                student_input_ids, already_has_special_tokens=True
-            )
-            teacher_special_mask = teacher_tokenizer.get_special_tokens_mask(
-                teacher_input_ids, already_has_special_tokens=True
-            )
-            student_encoded = student_tokenizer(
-                student_text, return_offsets_mapping=True
-            )
-            teacher_encoded = teacher_tokenizer(
-                teacher_text, return_offsets_mapping=True
-            )
-            student_offsets = student_encoded.offset_mapping
-            teacher_offsets = teacher_encoded.offset_mapping
-            for i in range(len(student_offsets)):
-                if student_special_mask[i]:
-                    continue
-                s_start, s_end = student_offsets[i]
-                if s_start == s_end:
-                    continue
-                for j in range(len(teacher_offsets)):
-                    if teacher_special_mask[j]:
-                        continue
-                    t_start, t_end = teacher_offsets[j]
-                    if t_start == t_end:
-                        continue
-                    if s_start >= t_end or s_end <= t_start:
-                        continue
-                    overlaps[b, i, j] = 1
+        
+        if "student_offsets" in input_data and f"teacher_{distiller.teacher_model_type}_offsets" in input_data:
+            # Use pre-computed offsets from collate_fn
+            student_offsets_list = input_data["student_offsets"]
+            teacher_offsets_list = input_data[f"teacher_{distiller.teacher_model_type}_offsets"]
+            student_special_masks = input_data["student_special_masks"]
+            teacher_special_masks = input_data[f"teacher_{distiller.teacher_model_type}_special_masks"]
+        else:
+            # Compute offsets on the fly (backward compatibility)
+            student_offsets_list = []
+            teacher_offsets_list = []
+            student_special_masks = []
+            teacher_special_masks = []
+            
+            for b in range(batch_size):
+                student_input_ids = input_data["input_ids"][b]
+                teacher_input_ids = input_data[
+                    f"teacher_{distiller.teacher_model_type}_input_ids"
+                ][b]
+                student_text = student_tokenizer.decode(student_input_ids)
+                teacher_text = teacher_tokenizer.decode(teacher_input_ids)
+                student_special_mask = student_tokenizer.get_special_tokens_mask(
+                    student_input_ids, already_has_special_tokens=True
+                )
+                teacher_special_mask = teacher_tokenizer.get_special_tokens_mask(
+                    teacher_input_ids, already_has_special_tokens=True
+                )
+                student_encoded = student_tokenizer(
+                    student_text, return_offsets_mapping=True
+                )
+                teacher_encoded = teacher_tokenizer(
+                    teacher_text, return_offsets_mapping=True
+                )
+                student_offsets_list.append(student_encoded.offset_mapping)
+                teacher_offsets_list.append(teacher_encoded.offset_mapping)
+                student_special_masks.append(student_special_mask)
+                teacher_special_masks.append(teacher_special_mask)
+        
+        # Use vectorized computation
+        overlaps = self._compute_overlaps_vectorized(
+            student_offsets_list,
+            teacher_offsets_list,
+            student_special_masks,
+            teacher_special_masks,
+            batch_size,
+            device
+        )
 
+        # Vectorized global_scores computation using advanced indexing
         global_scores = torch.zeros(
             (batch_size, self.input_max_length, self.input_max_length),
-            device=outputs.hidden_states[0].device,
+            device=device,
             dtype=outputs.hidden_states[0].dtype  # Use the same dtype as hidden states
         )
-        for b in range(batch_size):
-            for i in range(self.input_max_length):
-                for j in range(self.input_max_length):
-                    if overlaps[b, i, j] == 1:
-                        global_scores[b, i, j] = self.M_global.get((i, j), 0.0)
+        
+        # Convert M_global dict to tensor for efficient lookup
+        # Create a tensor of zeros, then fill in values from M_global
+        # We'll use advanced indexing to set values where overlaps are True
+        if len(self.M_global) > 0:
+            # Get all (i, j) pairs that have overlaps
+            overlap_indices = overlaps.nonzero(as_tuple=False)  # [N, 3] where columns are [b, i, j]
+            
+            if len(overlap_indices) > 0:
+                # Extract batch, i, j indices
+                batch_indices = overlap_indices[:, 0]
+                i_indices = overlap_indices[:, 1]
+                j_indices = overlap_indices[:, 2]
+                
+                # Lookup values from M_global
+                values = torch.zeros(
+                    len(overlap_indices), 
+                    dtype=global_scores.dtype, 
+                    device=device
+                )
+                for idx, (b, i, j) in enumerate(overlap_indices):
+                    values[idx] = self.M_global.get((i.item(), j.item()), 0.0)
+                
+                # Use advanced indexing to set values
+                global_scores[batch_indices, i_indices, j_indices] = values
 
         student_hidden_states_stacked = (
             torch.stack(outputs.hidden_states[1:])
