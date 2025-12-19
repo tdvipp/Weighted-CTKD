@@ -37,9 +37,13 @@ wget https://huggingface.co/Qwen/Qwen1.5-1.8B/resolve/main/model.safetensors -O 
 
 hf download HoangTran223/MCW_KD_Teacher_Qwen1.5-1.8B --local-dir model_hub/qwen/MCW_KD_Teacher_Qwen1.5-1.8B
 
-hf download HoangTran223/MCW_KD_GPT2_ULD --local-dir outputs/gpt2/gpt2-base/uld/MCW_KD_GPT2_ULD
-hf download HoangTran223/MCW_KD_GPT2_DSKD --local-dir outputs/gpt2/gpt2-base/dskd/MCW_KD_GPT2_DSKD
-hf download HoangTran223/MCW_KD_GPT2_MinED --local-dir outputs/gpt2/gpt2-base/mined/MCW_KD_GPT2_MinED
-hf download HoangTran223/MCW_KD_GPT2_MultiOT --local-dir outputs/gpt2/gpt2-base/multiot/MCW_KD_GPT2_MultiOT
+hf download HoangTran223/MCW_KD_Teacher_Mistral7B --local-dir model_hub/mistral/MCW_KD_Teacher_Mistral7B
+wget https://huggingface.co/mistralai/Mistral-7B-v0.1/resolve/main/pytorch_model-00001-of-00002.bin -O model_hub/mistral/mistral-7b-v0.1/pytorch_model-00001-of-00002.bin
+wget https://huggingface.co/mistralai/Mistral-7B-v0.1/resolve/main/pytorch_model-00002-of-00002.bin -O model_hub/mistral/mistral-7b-v0.1/pytorch_model-00002-of-00002.bin
+wget https://huggingface.co/TinyLlama/TinyLlama-1.1B-intermediate-step-1431k-3T/resolve/main/model.safetensors -O model_hub/tinyllama/tinyllama-1.1b-3T/model.safetensors
+# hf download HoangTran223/MCW_KD_GPT2_ULD --local-dir outputs/gpt2/gpt2-base/uld/MCW_KD_GPT2_ULD
+# hf download HoangTran223/MCW_KD_GPT2_DSKD --local-dir outputs/gpt2/gpt2-base/dskd/MCW_KD_GPT2_DSKD
+# hf download HoangTran223/MCW_KD_GPT2_MinED --local-dir outputs/gpt2/gpt2-base/mined/MCW_KD_GPT2_MinED
+# hf download HoangTran223/MCW_KD_GPT2_MultiOT --local-dir outputs/gpt2/gpt2-base/multiot/MCW_KD_GPT2_MultiOT
 
 hf upload mrtuandao/weighted-CTKD outputs/ .

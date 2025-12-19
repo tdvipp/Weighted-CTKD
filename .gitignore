@@ -4,3 +4,4 @@ __pycache__/
 *.pt
 outputs/model_hub/**/tokenizer.json
 outputs/
+m_global_*.json

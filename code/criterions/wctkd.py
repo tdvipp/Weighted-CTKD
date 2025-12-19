@@ -1,4 +1,5 @@
 import math
+import logging
 import torch
 import torch.nn.functional as F
 from .various_divergence import VariousDivergence
@@ -70,15 +71,35 @@ class WCTKD(VariousDivergence):
             # Filter out special tokens and empty offsets
             student_valid = []
             student_valid_indices = []
-            for i, (start, end) in enumerate(student_offsets):
-                if not student_special_mask[i] and start != end:
+            for i, offset in enumerate(student_offsets):
+                # Skip indices beyond input_max_length to avoid out-of-bounds errors
+                if i >= self.input_max_length:
+                    break
+                # Handle None values (special tokens)
+                if offset is None:
+                    continue
+                start, end = offset
+                # Check bounds before accessing special_mask
+                is_special = student_special_mask[i] if i < len(student_special_mask) else False
+                # Validate offsets: must be non-negative, start < end, and reasonable values
+                if not is_special and start is not None and end is not None and start >= 0 and end >= 0 and start < end and end < 1e9:
                     student_valid.append((start, end))
                     student_valid_indices.append(i)
             
             teacher_valid = []
             teacher_valid_indices = []
-            for j, (start, end) in enumerate(teacher_offsets):
-                if not teacher_special_mask[j] and start != end:
+            for j, offset in enumerate(teacher_offsets):
+                # Skip indices beyond input_max_length to avoid out-of-bounds errors
+                if j >= self.input_max_length:
+                    break
+                # Handle None values (special tokens)
+                if offset is None:
+                    continue
+                start, end = offset
+                # Check bounds before accessing special_mask
+                is_special = teacher_special_mask[j] if j < len(teacher_special_mask) else False
+                # Validate offsets: must be non-negative, start < end, and reasonable values
+                if not is_special and start is not None and end is not None and start >= 0 and end >= 0 and start < end and end < 1e9:
                     teacher_valid.append((start, end))
                     teacher_valid_indices.append(j)
             
@@ -86,16 +107,23 @@ class WCTKD(VariousDivergence):
                 continue
             
             # Convert to tensors: [num_valid_tokens, 2] where 2 is (start, end)
-            student_tensor = torch.tensor(
-                student_valid, 
-                dtype=torch.long, 
-                device=device
-            )  # [S_valid, 2]
-            teacher_tensor = torch.tensor(
-                teacher_valid, 
-                dtype=torch.long, 
-                device=device
-            )  # [T_valid, 2]
+            # Create on CPU first to catch any data issues, then move to device
+            try:
+                student_tensor = torch.tensor(
+                    student_valid, 
+                    dtype=torch.long
+                ).to(device)  # [S_valid, 2]
+                teacher_tensor = torch.tensor(
+                    teacher_valid, 
+                    dtype=torch.long
+                ).to(device)  # [T_valid, 2]
+            except (ValueError, RuntimeError) as e:
+                # Skip this batch if tensor creation fails
+                print(student_valid)
+                print(teacher_valid)
+                print(student_special_mask)
+                print(teacher_special_mask)
+                exit()
             
             # Extract start and end positions
             s_starts = student_tensor[:, 0]  # [S_valid]
@@ -126,6 +154,11 @@ class WCTKD(VariousDivergence):
                         [teacher_valid_indices[idx] for idx in overlap_positions[:, 1]],
                         device=device
                     )
+                    
+                    # Clamp indices to valid range to avoid out-of-bounds errors
+                    # The overlaps tensor is sized to input_max_length, but sequences can be longer
+                    student_orig_indices = torch.clamp(student_orig_indices, 0, self.input_max_length - 1)
+                    teacher_orig_indices = torch.clamp(teacher_orig_indices, 0, self.input_max_length - 1)
                     
                     # Set overlaps using advanced indexing
                     overlaps[b, student_orig_indices, teacher_orig_indices] = True
