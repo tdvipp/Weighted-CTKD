@@ -331,7 +331,14 @@ class WCTKD(VariousDivergence):
                 
                 # Use advanced indexing to set values
                 global_scores[batch_indices, i_indices, j_indices] = values
-
+        
+        # Normalize global_scores by sum for each student token
+        # Sum along teacher token dimension (dim=-1) for each student token
+        sum_per_student_token = global_scores.sum(dim=-1, keepdim=True)  # [B, S, 1]
+        # Add small epsilon to avoid division by zero
+        eps = 1e-8
+        global_scores = global_scores / (sum_per_student_token + eps)
+        
         student_hidden_states_stacked = (
             torch.stack(outputs.hidden_states[1:])
         )  # [num_layer, batch_size, seq_len, hidden_size]
@@ -378,7 +385,8 @@ class WCTKD(VariousDivergence):
         teacher_hidden_states_projected = torch.stack(teacher_hidden_states_projected_list)  # [K, B, T, H]
         student_hidden_states_stacked = torch.stack(student_hidden_states_list)  # [K, B, S, H]
 
-        A_softmax = torch.softmax(A, dim=-1)
+        temperature = 0.5
+        A_softmax = torch.softmax(A / temperature, dim=-1)
         # Ensure both tensors are in the same dtype before einsum
         A_softmax = A_softmax.to(dtype=teacher_hidden_states_projected.dtype)
         H_tilte = torch.einsum("kbst,kbth->kbsh", A_softmax, teacher_hidden_states_projected)        
