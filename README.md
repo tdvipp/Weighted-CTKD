@@ -1,4 +1,51 @@
-# Dual-Space Knowledge Distillation for Large Language Models (EMNLP 2024)
+# Weighted Cross-Tokenizer Knowledge Distillation (Weighted-CTKD)
+
+> **This repository is a fork of [DSKD](https://github.com/songmzhang/DSKD) (EMNLP 2024) with an additional contribution: the Weighted Cross-Tokenizer Knowledge Distillation (WCTKD) criterion, implemented as a graduation thesis project.**
+
+## My Contribution: Weighted-CTKD
+
+The key addition in this fork is [`code/criterions/wctkd.py`](code/criterions/wctkd.py), which introduces the **WCTKD** loss — a new knowledge distillation criterion designed for cross-tokenizer settings (student and teacher use different vocabularies).
+
+### Method Overview
+
+The WCTKD loss is combined with the original DSKD loss under a unified objective:
+
+```
+L = α · L_CE  +  β · L_WCTKD  +  γ · L_DSKD
+```
+
+The **L_WCTKD** term consists of three main components:
+
+1. **Layer Selection via Behavioral Information (BI)**
+   For each teacher layer, a BI score is computed as `1 - cosine_similarity(h_l, h_{l+1})`, measuring how much the layer transforms its input representation. The top-K layers with the highest BI scores (most informative transformations) are selected, and their weights are derived via softmax over the BI scores.
+
+2. **Cross-Tokenizer Token Alignment**
+   Since student and teacher may use different tokenizers, character-level offset mappings are used to identify which student tokens overlap with which teacher tokens. This builds a sparse overlap matrix that serves as a structural prior for alignment.
+
+3. **Hybrid Attention-Based Representation Aggregation**
+   For each selected teacher layer, a hybrid attention matrix is computed:
+   ```
+   A_hybrid = (1 - γ_h) · A_contextual  +  γ_h · A_global
+   ```
+   - `A_contextual`: dot-product attention between student and projected teacher hidden states
+   - `A_global`: global co-occurrence statistics loaded from a pre-computed `M_global` file, normalized per student token
+
+   The overlap mask is applied to zero out non-aligned positions. Teacher hidden states are then aggregated via softmax attention into a student-space target `H̃`, and the loss is the layer-weight-averaged cosine distance between `H̃` and the student's own hidden states.
+
+### Key Hyperparameters
+
+| Argument | Description |
+|---|---|
+| `--wctkd_alpha` | Weight for cross-entropy loss |
+| `--wctkd_beta` | Weight for WCTKD hidden-state loss |
+| `--wctkd_gamma` | Weight for DSKD loss |
+| `--wctkd_hidden_gamma` | Blend ratio between contextual and global attention (`γ_h`) |
+| `--wctkd_top_k` | Number of top-K teacher layers to use |
+| `--M_global_path` | Path to pre-computed global co-occurrence statistics (JSON) |
+
+---
+
+## Original Paper: Dual-Space Knowledge Distillation for Large Language Models (EMNLP 2024)
 
 <small>[Songming Zhang](https://songmzhang.github.io/), Xue Zhang, Zengkui Sun, Yufeng Chen*, Jinan Xu</small>
 
